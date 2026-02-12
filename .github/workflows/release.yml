@@ -1,0 +1,93 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: macos-15
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Clone sibling dependencies
+        run: |
+          cd ..
+          git clone --depth 1 https://github.com/MxIris-Reverse-Engineering/MachOKit.git
+          git clone --depth 1 https://github.com/MxIris-Reverse-Engineering/MachOObjCSection.git
+          git clone --depth 1 https://github.com/MxIris-Reverse-Engineering/MachOSwiftSection.git
+
+      # TODO: The sibling repos use branch: "main" in Package.swift remote
+      # fallbacks. They should be pinned to specific revisions or tags for
+      # reproducible CI builds.
+
+      - name: Select Xcode 26.2
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '26.2'
+
+      - name: Resolve package dependencies
+        run: |
+          xcodebuild -resolvePackageDependencies \
+            -workspace RuntimeViewer.xcworkspace \
+            -scheme "RuntimeViewer macOS" \
+            -derivedDataPath ./DerivedData \
+            -skipPackagePluginValidation \
+            -skipMacroValidation
+
+      - name: Patch SwiftyXPC for iOS compatibility
+        run: bash scripts/patch-swiftyxpc-for-ios.sh ./DerivedData
+
+      # FIXME: Only building arm64 due to Swift 6.2 compiler crash during x86_64 cross-compilation on ARM64 runners. Re-enable ARCHS="x86_64 arm64" for universal binary when the compiler bug is fixed.
+      # FIXME: Disabling optimization due to Swift 6.2.3 compiler crash when emitting ObjC metadata. Re-enable GCC_OPTIMIZATION_LEVEL=3 when the compiler bug is fixed.
+      - name: Build macOS app
+        run: |
+          xcodebuild build \
+            -workspace RuntimeViewer.xcworkspace \
+            -scheme "RuntimeViewer macOS" \
+            -configuration Release \
+            -destination 'generic/platform=macOS' \
+            -derivedDataPath ./DerivedData \
+            -skipPackagePluginValidation \
+            -skipMacroValidation \
+            ARCHS=arm64 \
+            CODE_SIGNING_ALLOWED=NO \
+            SWIFT_WHOLE_MODULE_OPTIMIZATION=NO \
+            GCC_OPTIMIZATION_LEVEL=0
+
+      - name: Build iOS Simulator app
+        run: |
+          xcodebuild build \
+            -workspace RuntimeViewer.xcworkspace \
+            -scheme "RuntimeViewer iOS" \
+            -configuration Release \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath ./DerivedData \
+            -skipPackagePluginValidation \
+            -skipMacroValidation \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Package artifacts
+        run: |
+          cd ./DerivedData/Build/Products/Release
+          /usr/bin/ditto -c -k --keepParent RuntimeViewer.app \
+            "$GITHUB_WORKSPACE/RuntimeViewer.zip"
+
+          cd "$GITHUB_WORKSPACE/DerivedData/Build/Products/Release-iphonesimulator"
+          /usr/bin/ditto -c -k --keepParent RuntimeViewer.app \
+            "$GITHUB_WORKSPACE/RuntimeViewer-iOS-Simulator.zip"
+
+      - name: Create Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --title "RuntimeViewer ${{ github.ref_name }}" \
+            --generate-notes \
+            RuntimeViewer.zip \
+            RuntimeViewer-iOS-Simulator.zip
