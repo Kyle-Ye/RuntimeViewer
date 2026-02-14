@@ -40,6 +40,23 @@ jobs:
             -skipPackagePluginValidation \
             -skipMacroValidation
 
+      - name: Build Catalyst helper
+        run: |
+          xcodebuild build \
+            -workspace RuntimeViewer.xcworkspace \
+            -scheme RuntimeViewerCatalystHelper \
+            -configuration Release \
+            -destination 'generic/platform=macOS,variant=Mac Catalyst' \
+            -derivedDataPath ./DerivedData \
+            -skipPackagePluginValidation \
+            -skipMacroValidation \
+            CODE_SIGNING_ALLOWED=NO \
+            SWIFT_WHOLE_MODULE_OPTIMIZATION=NO \
+            GCC_OPTIMIZATION_LEVEL=0
+          # Copy built Catalyst helper to where the main app expects it
+          cp -R ./DerivedData/Build/Products/Release-maccatalyst/RuntimeViewerCatalystHelper.app \
+            ./RuntimeViewerUsingAppKit/RuntimeViewerCatalystHelper.app
+
       # FIXME: Only building arm64 due to Swift 6.2 compiler crash during x86_64 cross-compilation on ARM64 runners. Re-enable ARCHS="x86_64 arm64" for universal binary when the compiler bug is fixed.
       # FIXME: Disabling optimization due to Swift 6.2.3 compiler crash when emitting ObjC metadata. Re-enable GCC_OPTIMIZATION_LEVEL=3 when the compiler bug is fixed.
       - name: Build macOS app
