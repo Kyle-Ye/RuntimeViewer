@@ -40,9 +40,6 @@ jobs:
             -skipPackagePluginValidation \
             -skipMacroValidation
 
-      - name: Patch SwiftyXPC for iOS compatibility
-        run: bash scripts/patch-swiftyxpc-for-ios.sh ./DerivedData
-
       # FIXME: Only building arm64 due to Swift 6.2 compiler crash during x86_64 cross-compilation on ARM64 runners. Re-enable ARCHS="x86_64 arm64" for universal binary when the compiler bug is fixed.
       # FIXME: Disabling optimization due to Swift 6.2.3 compiler crash when emitting ObjC metadata. Re-enable GCC_OPTIMIZATION_LEVEL=3 when the compiler bug is fixed.
       - name: Build macOS app
