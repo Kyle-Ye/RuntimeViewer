@@ -35,45 +35,45 @@ jobs:
         run: |
           xcodebuild -resolvePackageDependencies \
             -workspace RuntimeViewer.xcworkspace \
-            -scheme "RuntimeViewer macOS" \
+            -scheme "RuntimeViewer iOS" \
             -derivedDataPath ./DerivedData \
             -skipPackagePluginValidation \
             -skipMacroValidation
 
-      - name: Build Catalyst helper
-        run: |
-          xcodebuild build \
-            -workspace RuntimeViewer.xcworkspace \
-            -scheme RuntimeViewerCatalystHelper \
-            -configuration Release \
-            -destination 'generic/platform=macOS,variant=Mac Catalyst' \
-            -derivedDataPath ./DerivedData \
-            -skipPackagePluginValidation \
-            -skipMacroValidation \
-            CODE_SIGNING_ALLOWED=NO \
-            SWIFT_WHOLE_MODULE_OPTIMIZATION=NO \
-            GCC_OPTIMIZATION_LEVEL=0
-          # Copy built Catalyst helper to where the main app expects it
-          cp -R ./DerivedData/Build/Products/Release-maccatalyst/RuntimeViewerCatalystHelper.app \
-            ./RuntimeViewerUsingAppKit/RuntimeViewerCatalystHelper.app
-
-      # FIXME: Only building arm64 due to Swift 6.2 compiler crash during x86_64 cross-compilation on ARM64 runners. Re-enable ARCHS="x86_64 arm64" for universal binary when the compiler bug is fixed.
-      # FIXME: Disabling optimization due to Swift 6.2.3 compiler crash when emitting ObjC metadata. Re-enable GCC_OPTIMIZATION_LEVEL=3 when the compiler bug is fixed.
-      - name: Build macOS app
-        run: |
-          xcodebuild build \
-            -workspace RuntimeViewer.xcworkspace \
-            -scheme "RuntimeViewer macOS" \
-            -configuration Release \
-            -destination 'generic/platform=macOS' \
-            -derivedDataPath ./DerivedData \
-            -skipPackagePluginValidation \
-            -skipMacroValidation \
-            ARCHS=arm64 \
-            CODE_SIGNING_ALLOWED=NO \
-            SWIFT_WHOLE_MODULE_OPTIMIZATION=NO \
-            GCC_OPTIMIZATION_LEVEL=0 \
-            ASSETCATALOG_COMPILER_APPICON_NAME=""
+      # TODO: macOS build requires signing key and Catalyst helper.
+      # Uncomment once signing is set up on CI.
+      #
+      # - name: Build Catalyst helper
+      #   run: |
+      #     xcodebuild build \
+      #       -workspace RuntimeViewer.xcworkspace \
+      #       -scheme RuntimeViewerCatalystHelper \
+      #       -configuration Release \
+      #       -destination 'generic/platform=macOS,variant=Mac Catalyst' \
+      #       -derivedDataPath ./DerivedData \
+      #       -skipPackagePluginValidation \
+      #       -skipMacroValidation \
+      #       CODE_SIGNING_ALLOWED=NO \
+      #       SWIFT_WHOLE_MODULE_OPTIMIZATION=NO \
+      #       GCC_OPTIMIZATION_LEVEL=0
+      #     cp -R ./DerivedData/Build/Products/Release-maccatalyst/RuntimeViewerCatalystHelper.app \
+      #       ./RuntimeViewerUsingAppKit/RuntimeViewerCatalystHelper.app
+      #
+      # - name: Build macOS app
+      #   run: |
+      #     xcodebuild build \
+      #       -workspace RuntimeViewer.xcworkspace \
+      #       -scheme "RuntimeViewer macOS" \
+      #       -configuration Release \
+      #       -destination 'generic/platform=macOS' \
+      #       -derivedDataPath ./DerivedData \
+      #       -skipPackagePluginValidation \
+      #       -skipMacroValidation \
+      #       ARCHS=arm64 \
+      #       CODE_SIGNING_ALLOWED=NO \
+      #       SWIFT_WHOLE_MODULE_OPTIMIZATION=NO \
+      #       GCC_OPTIMIZATION_LEVEL=0 \
+      #       ASSETCATALOG_COMPILER_APPICON_NAME=""
 
       - name: Build iOS Simulator app
         run: |
@@ -89,11 +89,7 @@ jobs:
 
       - name: Package artifacts
         run: |
-          cd ./DerivedData/Build/Products/Release
-          /usr/bin/ditto -c -k --keepParent RuntimeViewer.app \
-            "$GITHUB_WORKSPACE/RuntimeViewer.zip"
-
-          cd "$GITHUB_WORKSPACE/DerivedData/Build/Products/Release-iphonesimulator"
+          cd ./DerivedData/Build/Products/Release-iphonesimulator
           /usr/bin/ditto -c -k --keepParent RuntimeViewer.app \
             "$GITHUB_WORKSPACE/RuntimeViewer-iOS-Simulator.zip"
 
@@ -104,5 +100,4 @@ jobs:
           gh release create "${{ github.ref_name }}" \
             --title "RuntimeViewer ${{ github.ref_name }}" \
             --generate-notes \
-            RuntimeViewer.zip \
             RuntimeViewer-iOS-Simulator.zip
