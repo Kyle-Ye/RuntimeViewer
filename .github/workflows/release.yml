@@ -40,6 +40,9 @@ jobs:
             -skipPackagePluginValidation \
             -skipMacroValidation
 
+      - name: Patch SwiftyXPC for iOS compatibility
+        run: bash scripts/patch-swiftyxpc-for-ios.sh ./DerivedData
+
       # TODO: macOS build requires signing key and Catalyst helper.
       # Uncomment once signing is set up on CI.
       #
